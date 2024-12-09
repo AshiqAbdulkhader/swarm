@@ -5,7 +5,7 @@ from collections import defaultdict
 from typing import List, Callable, Union
 
 # Package/library imports
-from openai import OpenAI
+from openai import OpenAI, AzureOpenAI
 
 
 # Local imports
@@ -18,16 +18,34 @@ from .types import (
     Function,
     Response,
     Result,
+    ModelProvider,
 )
 
 __CTX_VARS_NAME__ = "context_variables"
 
 
 class Swarm:
-    def __init__(self, client=None):
-        if not client:
-            client = OpenAI()
-        self.client = client
+    def __init__(self, client=None, azure_config=None):
+        """
+        Initialize Swarm with either a custom client or Azure configuration.
+        
+        Args:
+            client: A custom OpenAI client instance
+            azure_config: A dictionary containing Azure configuration with keys:
+                - api_key: Azure OpenAI API key
+                - azure_endpoint: Azure OpenAI endpoint URL
+                - api_version: Azure OpenAI API version (optional)
+        """
+        if client:
+            self.client = client
+        elif azure_config:
+            self.client = AzureOpenAI(
+                api_key=azure_config["api_key"],
+                azure_endpoint=azure_config["azure_endpoint"],
+                api_version=azure_config.get("api_version", "2023-12-01-preview")
+            )
+        else:
+            self.client = OpenAI()
 
     def get_chat_completion(
         self,
@@ -56,7 +74,7 @@ class Swarm:
                 params["required"].remove(__CTX_VARS_NAME__)
 
         create_params = {
-            "model": model_override or agent.model,
+            "model": model_override or agent.model_identifier,
             "messages": messages,
             "tools": tools or None,
             "tool_choice": agent.tool_choice,
